@@ -56,7 +56,7 @@ Before you begin, make sure you have:
 
 ```bash
 git clone <your-repository-url>
-cd simple_app_terraform_deployment
+cd simple_app_terraform_Deployment
 ```
 
 ## Step 2 — Configure GCP
@@ -91,8 +91,8 @@ region     = "asia-south1"
 zone       = "asia-south1-a"
 machine_type = "e2-micro"
 vm_name    = "html-demo-vm"
-github_owner = "Gokulv2795"
-github_repo  = "simple_app_terraform_deployment"
+github_owner = "GokulV2795"
+github_repo  = "simple_app_terraform_Deployment"
 tfstate_bucket_name = "your-gcp-project-id-tfstate"
 ```
 

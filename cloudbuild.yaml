@@ -13,8 +13,8 @@ substitutions:
   _REGION: asia-south1
   _ZONE: asia-south1-a
   _VM_NAME: html-demo-vm
-  _GITHUB_OWNER: Gokulv2795
-  _GITHUB_REPO: simple_app_terraform_deployment
+  _GITHUB_OWNER: GokulV2795
+  _GITHUB_REPO: simple_app_terraform_Deployment
   _TFSTATE_BUCKET: terraform-lab-504603-tfstate
   _DEPLOYMENT_SA_EMAIL: gcp-demo-deployer@terraform-lab-504603.iam.gserviceaccount.com
 
