@@ -1,0 +1,118 @@
+name: Deploy GCP HTML App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: "1.5.7"
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION }}
+  ZONE: ${{ vars.GCP_ZONE }}
+  VM_NAME: ${{ vars.GCP_VM_NAME }}
+  GCP_WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate HTML files
+        run: |
+          test -f app/index.html
+          test -f app/styles.css
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class Checker(HTMLParser):
+              pass
+
+          for file in [Path('app/index.html'), Path('app/styles.css')]:
+              if file.suffix == '.html':
+                  parser = Checker()
+                  parser.feed(file.read_text(encoding='utf-8'))
+          print('HTML validation passed.')
+          PY
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -check -diff
+
+      - name: Authenticate to GCP with Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WIF_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: |
+          terraform validate
+
+      - name: Terraform Plan
+        working-directory: terraform
+        env:
+          TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+          TF_VAR_region: ${{ vars.GCP_REGION }}
+          TF_VAR_zone: ${{ vars.GCP_ZONE }}
+          TF_VAR_vm_name: ${{ vars.GCP_VM_NAME }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+          TF_VAR_github_repo: ${{ github.event.repository.name }}
+        run: terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        working-directory: terraform
+        env:
+          TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+          TF_VAR_region: ${{ vars.GCP_REGION }}
+          TF_VAR_zone: ${{ vars.GCP_ZONE }}
+          TF_VAR_vm_name: ${{ vars.GCP_VM_NAME }}
+          TF_VAR_github_owner: ${{ github.repository_owner }}
+          TF_VAR_github_repo: ${{ github.event.repository.name }}
+        run: terraform apply -auto-approve tfplan
+
+      - name: Read VM details from Terraform output
+        working-directory: terraform
+        id: tf-output
+        run: |
+          echo "vm_ip=$(terraform output -raw vm_external_ip)" >> "$GITHUB_OUTPUT"
+          echo "vm_name=$(terraform output -raw vm_name)" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy HTML application to VM
+        env:
+          VM_IP: ${{ steps.tf-output.outputs.vm_ip }}
+          VM_NAME: ${{ steps.tf-output.outputs.vm_name }}
+        run: |
+          chmod +x scripts/deploy.sh
+          ./scripts/deploy.sh "${VM_NAME}" "${{ vars.GCP_ZONE }}" "${{ vars.GCP_PROJECT_ID }}"
+
+      - name: Health check
+        env:
+          APP_URL: http://${{ steps.tf-output.outputs.vm_ip }}
+        run: |
+          chmod +x scripts/health-check.sh
+          ./scripts/health-check.sh "$APP_URL"

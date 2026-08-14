@@ -1,0 +1,17 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+*.tfvars.json
+
+# Environment files
+.env
+.env.*
+*.key
+*.pem
+credentials/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
