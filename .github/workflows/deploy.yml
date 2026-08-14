@@ -31,6 +31,7 @@ jobs:
         run: |
           test -f app/index.html
           test -f app/styles.css
+          test -f app/app.js
           python3 - <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
@@ -38,7 +39,7 @@ jobs:
           class Checker(HTMLParser):
               pass
 
-          for file in [Path('app/index.html'), Path('app/styles.css')]:
+          for file in [Path('app/index.html'), Path('app/styles.css'), Path('app/app.js')]:
               if file.suffix == '.html':
                   parser = Checker()
                   parser.feed(file.read_text(encoding='utf-8'))
@@ -66,7 +67,9 @@ jobs:
       - name: Terraform Init
         working-directory: terraform
         run: |
-          terraform init
+          terraform init \
+            -backend-config="bucket=${{ vars.GCP_PROJECT_ID }}-tfstate" \
+            -backend-config="prefix=simple-app-terraform-deployment"
 
       - name: Terraform Validate
         working-directory: terraform
@@ -82,6 +85,7 @@ jobs:
           TF_VAR_vm_name: ${{ vars.GCP_VM_NAME }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
           TF_VAR_github_repo: ${{ github.event.repository.name }}
+          TF_VAR_tfstate_bucket_name: ${{ vars.GCP_PROJECT_ID }}-tfstate
         run: terraform plan -out=tfplan
 
       - name: Terraform Apply
@@ -93,6 +97,7 @@ jobs:
           TF_VAR_vm_name: ${{ vars.GCP_VM_NAME }}
           TF_VAR_github_owner: ${{ github.repository_owner }}
           TF_VAR_github_repo: ${{ github.event.repository.name }}
+          TF_VAR_tfstate_bucket_name: ${{ vars.GCP_PROJECT_ID }}-tfstate
         run: terraform apply -auto-approve tfplan
 
       - name: Read VM details from Terraform output

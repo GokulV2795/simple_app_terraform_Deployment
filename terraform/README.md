@@ -33,14 +33,19 @@ region     = "asia-south1"
 zone       = "asia-south1-a"
 machine_type = "e2-micro"
 vm_name    = "html-demo-vm"
-github_owner = "your-github-user-or-org"
-github_repo  = "gcp-html-terraform-cicd"
+github_owner = "Gokulv2795"
+github_repo  = "simple_app_terraform_deployment"
+tfstate_bucket_name = "your-gcp-project-id-tfstate"
 ```
 
 ## Local Terraform commands
 
+`terraform init` requires the GCS backend config (see [State management](#state-management) below for the one-time bucket setup):
+
 ```bash
-terraform init
+terraform init \
+  -backend-config="bucket=your-gcp-project-id-tfstate" \
+  -backend-config="prefix=simple-app-terraform-deployment"
 terraform fmt
 terraform validate
 terraform plan
@@ -49,38 +54,36 @@ terraform apply
 
 ## State management
 
-### Option 1: local state (for learning/demo)
+This project uses a Google Cloud Storage remote backend, required because GitHub Actions runners are ephemeral: without shared remote state, every CI run would start from scratch and try to recreate resources that already exist, and fail. `main.tf` declares an empty `backend "gcs" {}` block; the bucket and prefix are supplied at `terraform init` time via `-backend-config`, not hardcoded.
 
-Local state is simple for learning, but it is not recommended for shared or production use. It stores state locally in your workstation.
+### One-time setup: create the state bucket
 
-### Option 2: Google Cloud Storage remote backend (recommended)
-
-Create a GCS bucket and configure Terraform backend:
+Before the very first `terraform init`, create the bucket manually (this bucket cannot be managed by the same Terraform state it holds):
 
 ```bash
 PROJECT_ID="your-gcp-project-id"
 BUCKET_NAME="${PROJECT_ID}-tfstate"
 REGION="asia-south1"
 
-gcloud storage buckets create "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" --location="${REGION}" --uniform-bucket-level-access
+gcloud storage buckets create "gs://${BUCKET_NAME}" \
+  --project="${PROJECT_ID}" \
+  --location="${REGION}" \
+  --uniform-bucket-level-access
+
+gcloud storage buckets update "gs://${BUCKET_NAME}" --versioning
 ```
 
-Then add backend configuration in `main.tf`:
+Set `tfstate_bucket_name = "${BUCKET_NAME}"` in your `terraform.tfvars` — Terraform grants the deployment service account write access to this bucket automatically (`google_storage_bucket_iam_member.deployment_sa_tfstate_access` in `main.tf`), so subsequent GitHub Actions runs (which authenticate as that service account) can read and write state too.
 
-```hcl
-terraform {
-  backend "gcs" {
-    bucket = "your-terraform-state-bucket"
-    prefix = "gcp-html-demo"
-  }
-}
-```
-
-Run:
+### Initialize with the backend
 
 ```bash
-terraform init -reconfigure
+terraform init \
+  -backend-config="bucket=${BUCKET_NAME}" \
+  -backend-config="prefix=simple-app-terraform-deployment"
 ```
+
+The GitHub Actions workflow runs the equivalent command automatically using the `GCP_PROJECT_ID` repository variable.
 
 Do not commit `terraform.tfstate` or any state files to Git.
 

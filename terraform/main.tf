@@ -1,10 +1,9 @@
-# Uncomment and configure this when you are ready to use a remote GCS backend.
-# terraform {
-#   backend "gcs" {
-#     bucket = "your-terraform-state-bucket"
-#     prefix = "gcp-html-demo"
-#   }
-# }
+# Remote state bucket must be created manually before the first `terraform init`
+# (see terraform/README.md). Bucket name and prefix are supplied via
+# `terraform init -backend-config=...` so they aren't hardcoded here.
+terraform {
+  backend "gcs" {}
+}
 
 provider "google" {
   project = var.project_id
@@ -59,6 +58,20 @@ resource "google_compute_firewall" "http_ingress" {
   target_tags   = ["http-server"]
 }
 
+resource "google_compute_firewall" "iap_ssh_ingress" {
+  name    = "allow-iap-ssh"
+  network = google_compute_network.main.name
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  # IAP TCP forwarding always originates from this range.
+  source_ranges = ["35.235.240.0/20"]
+  target_tags   = ["iap-ssh"]
+}
+
 resource "google_service_account" "deployment_sa" {
   account_id   = var.deployment_service_account_id
   display_name = "GitHub Actions deployment service account"
@@ -85,7 +98,7 @@ resource "google_project_iam_member" "deployment_sa_iap_tunnel" {
 
 resource "google_project_iam_member" "deployment_sa_oslogin" {
   project = var.project_id
-  role    = "roles/compute.osLogin"
+  role    = "roles/compute.osAdminLogin"
   member  = "serviceAccount:${google_service_account.deployment_sa.email}"
 }
 
@@ -93,6 +106,12 @@ resource "google_project_iam_member" "deployment_sa_compute_viewer" {
   project = var.project_id
   role    = "roles/compute.viewer"
   member  = "serviceAccount:${google_service_account.deployment_sa.email}"
+}
+
+resource "google_storage_bucket_iam_member" "deployment_sa_tfstate_access" {
+  bucket = var.tfstate_bucket_name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.deployment_sa.email}"
 }
 
 resource "google_iam_workload_identity_pool" "github" {
@@ -108,13 +127,13 @@ resource "google_iam_workload_identity_pool_provider" "github" {
   project                            = var.project_id
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
   workload_identity_pool_provider_id = var.wif_provider_id
-  display_name                      = "GitHub Actions OIDC Provider"
-  description                       = "OIDC provider for GitHub Actions"
+  display_name                       = "GitHub Actions OIDC Provider"
+  description                        = "OIDC provider for GitHub Actions"
 
   attribute_mapping = {
-    "google.subject"       = "assertion.sub"
-    "attribute.repository" = "assertion.repository"
-    "attribute.ref"         = "assertion.ref"
+    "google.subject"             = "assertion.sub"
+    "attribute.repository"       = "assertion.repository"
+    "attribute.ref"              = "assertion.ref"
     "attribute.repository_owner" = "assertion.repository_owner"
   }
 
@@ -135,7 +154,7 @@ resource "google_compute_instance" "vm" {
   name         = var.vm_name
   machine_type = var.machine_type
   zone         = var.zone
-  tags         = ["http-server"]
+  tags         = ["http-server", "iap-ssh"]
 
   boot_disk {
     initialize_params {

@@ -52,7 +52,7 @@ Before you begin, make sure you have:
 
 ```bash
 git clone <your-repository-url>
-cd gcp-html-terraform-cicd
+cd simple_app_terraform_deployment
 ```
 
 ## Step 2 — Configure GCP
@@ -87,13 +87,26 @@ region     = "asia-south1"
 zone       = "asia-south1-a"
 machine_type = "e2-micro"
 vm_name    = "html-demo-vm"
-github_owner = "your-github-user-or-org"
-github_repo  = "gcp-html-terraform-cicd"
+github_owner = "Gokulv2795"
+github_repo  = "simple_app_terraform_deployment"
+tfstate_bucket_name = "your-gcp-project-id-tfstate"
 ```
 
 ## Step 4 — Create GCP authentication
 
 This project uses GitHub OIDC with Workload Identity Federation. Do not use a long-lived service account JSON key.
+
+### Create the Terraform state bucket (one-time)
+
+GitHub Actions runners are ephemeral, so Terraform state must live in GCS rather than on disk. Create the bucket once, before the first `terraform init` (see `terraform/README.md` for the full command including the bucket-versioning step):
+
+```bash
+PROJECT_ID="your-gcp-project-id"
+gcloud storage buckets create "gs://${PROJECT_ID}-tfstate" \
+  --project="${PROJECT_ID}" \
+  --location="asia-south1" \
+  --uniform-bucket-level-access
+```
 
 ### Create the Terraform identity resources
 
@@ -101,7 +114,9 @@ Run the Terraform configuration locally once to create the Workload Identity Poo
 
 ```bash
 cd terraform
-terraform init
+terraform init \
+  -backend-config="bucket=your-gcp-project-id-tfstate" \
+  -backend-config="prefix=simple-app-terraform-deployment"
 terraform plan
 terraform apply
 ```
@@ -112,6 +127,7 @@ This creates:
 - A Workload Identity Pool
 - A Workload Identity Provider
 - IAM bindings that allow GitHub Actions to impersonate the deployment service account
+- A grant allowing the deployment service account to read/write the Terraform state bucket, so subsequent GitHub Actions runs can share state with this initial local run
 
 The Terraform outputs include the IAM provider resource name and the service account email.
 

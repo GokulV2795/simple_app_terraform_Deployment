@@ -1,5 +1,6 @@
 :root {
   --bg: #f4f7fb;
+  --bg-top: #edf4ff;
   --surface: #ffffff;
   --primary: #1f6feb;
   --primary-dark: #1649a8;
@@ -7,6 +8,20 @@
   --muted: #475569;
   --border: #dfe7f1;
   --shadow: rgba(15, 23, 42, 0.1);
+  --danger: #dc2626;
+}
+
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --bg-top: #0b1220;
+  --surface: #111827;
+  --primary: #4c8dff;
+  --primary-dark: #6ea3ff;
+  --text: #e5e9f0;
+  --muted: #9aa5b1;
+  --border: #1f2937;
+  --shadow: rgba(0, 0, 0, 0.4);
+  --danger: #f87171;
 }
 
 * {
@@ -16,8 +31,9 @@
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
-  background: linear-gradient(180deg, #edf4ff 0%, var(--bg) 100%);
+  background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg) 100%);
   color: var(--text);
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .container {
@@ -43,6 +59,22 @@ body {
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.theme-toggle {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .hero-content {
@@ -93,13 +125,14 @@ body {
 }
 
 .status-card {
-  margin: -3rem auto 4rem;
+  margin: -3rem auto 2rem;
   max-width: 720px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 18px;
   box-shadow: 0 18px 40px var(--shadow);
   padding: 2rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .status-card h2 {
@@ -125,6 +158,160 @@ body {
   border-bottom: none;
 }
 
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  max-width: 720px;
+  margin: 0 auto 4rem;
+}
+
+.demo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px var(--shadow);
+  padding: 1.75rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.demo-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.3rem;
+  color: var(--text);
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.65rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.05s ease, background 0.2s ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+  background: var(--bg);
+}
+
+.counter {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.counter-value {
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 3ch;
+}
+
+.counter-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.todo-form {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.todo-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.todo-input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.todo-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.todo-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.95rem;
+}
+
+.todo-list li span {
+  overflow-wrap: anywhere;
+}
+
+.todo-remove {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.todo-remove:hover {
+  color: var(--danger);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.site-footer {
+  padding: 1rem 0 3rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 @media (max-width: 640px) {
   .hero {
     min-height: 360px;
@@ -136,5 +323,9 @@ body {
 
   .status-card h2 {
     font-size: 1.5rem;
+  }
+
+  .todo-form {
+    flex-direction: column;
   }
 }

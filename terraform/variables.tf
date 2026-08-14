@@ -63,6 +63,11 @@ variable "github_owner" {
 }
 
 variable "github_repo" {
-  description = "GitHub repository name (for example: gcp-html-terraform-cicd)."
+  description = "GitHub repository name (for example: simple_app_terraform_deployment)."
+  type        = string
+}
+
+variable "tfstate_bucket_name" {
+  description = "Name of the pre-existing GCS bucket used for Terraform remote state. Create this manually before the first `terraform init` (see terraform/README.md); the deployment service account is granted write access to it."
   type        = string
 }

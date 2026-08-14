@@ -17,13 +17,13 @@ gcloud compute scp \
   --project="${PROJECT_ID}" \
   --zone="${VM_ZONE}" \
   --tunnel-through-iap \
-  "app/index.html" "app/styles.css" \
-  "ubuntu@${VM_NAME}:/tmp/"
+  "app/index.html" "app/styles.css" "app/app.js" \
+  "${VM_NAME}:/tmp/"
 
 gcloud compute ssh "${VM_NAME}" \
   --project="${PROJECT_ID}" \
   --zone="${VM_ZONE}" \
   --tunnel-through-iap \
-  --command="sudo mkdir -p ${REMOTE_DIR}; sudo install -m 0644 /tmp/index.html ${REMOTE_DIR}/index.html; sudo install -m 0644 /tmp/styles.css ${REMOTE_DIR}/styles.css; sudo systemctl reload nginx || sudo systemctl restart nginx"
+  --command="sudo mkdir -p ${REMOTE_DIR}; sudo install -m 0644 /tmp/index.html ${REMOTE_DIR}/index.html; sudo install -m 0644 /tmp/styles.css ${REMOTE_DIR}/styles.css; sudo install -m 0644 /tmp/app.js ${REMOTE_DIR}/app.js; sudo systemctl reload nginx || sudo systemctl restart nginx"
 
 echo "Deployment complete."

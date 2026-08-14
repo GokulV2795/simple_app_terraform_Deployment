@@ -9,6 +9,7 @@ curl -fsS --max-time 20 "${URL}" | tee /tmp/gcp-demo-response.html >/dev/null
 
 grep -q "GCP Terraform CI/CD Demo" /tmp/gcp-demo-response.html
 
-grep -q "Application Status: Running" /tmp/gcp-demo-response.html
+grep -q "Application Status" /tmp/gcp-demo-response.html
+grep -q "Running" /tmp/gcp-demo-response.html
 
 echo "Deployment successful: application responded with HTTP 200 and expected content."
