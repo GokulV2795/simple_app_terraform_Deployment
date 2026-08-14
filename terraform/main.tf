@@ -59,7 +59,7 @@ resource "google_compute_firewall" "http_ingress" {
 }
 
 resource "google_compute_firewall" "iap_ssh_ingress" {
-  name    = "allow-iap-ssh"
+  name    = "allow-html-demo-iap-ssh"
   network = google_compute_network.main.name
 
   allow {
