@@ -1,0 +1,124 @@
+# Alternate CI/CD path for this project (see .github/workflows/deploy.yml for the
+# GitHub Actions equivalent). Mirrors the same steps: validate app files, terraform
+# fmt/init/validate/plan/apply, deploy the static site to the VM, then health-check it.
+#
+# Requires a one-time setup before the first run (see README.md "Cloud Build" section):
+#   - The GCS state bucket must already exist.
+#   - The deployment service account (created by the initial local `terraform apply`)
+#     must exist, and whoever creates the trigger needs roles/iam.serviceAccountUser
+#     on it to let Cloud Build act as that identity.
+#   - A Cloud Build trigger connected to this repository, using this file.
+
+substitutions:
+  _REGION: asia-south1
+  _ZONE: asia-south1-a
+  _VM_NAME: html-demo-vm
+  _GITHUB_OWNER: Gokulv2795
+  _GITHUB_REPO: simple_app_terraform_deployment
+  _TFSTATE_BUCKET: terraform-lab-504603-tfstate
+  _DEPLOYMENT_SA_EMAIL: gcp-demo-deployer@terraform-lab-504603.iam.gserviceaccount.com
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+serviceAccount: projects/$PROJECT_ID/serviceAccounts/${_DEPLOYMENT_SA_EMAIL}
+
+timeout: 1800s
+
+steps:
+  - id: validate-app-files
+    name: python:3.12-slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        test -f app/index.html
+        test -f app/styles.css
+        test -f app/app.js
+        python3 - <<'PY'
+        from html.parser import HTMLParser
+        from pathlib import Path
+
+        class Checker(HTMLParser):
+            pass
+
+        for file in [Path('app/index.html'), Path('app/styles.css'), Path('app/app.js')]:
+            if file.suffix == '.html':
+                parser = Checker()
+                parser.feed(file.read_text(encoding='utf-8'))
+        print('HTML validation passed.')
+        PY
+
+  - id: terraform-fmt-check
+    name: hashicorp/terraform:1.5.7
+    dir: terraform
+    entrypoint: terraform
+    args: ['fmt', '-check', '-diff']
+
+  - id: terraform-init
+    name: hashicorp/terraform:1.5.7
+    dir: terraform
+    entrypoint: terraform
+    args:
+      - init
+      - -backend-config=bucket=${_TFSTATE_BUCKET}
+      - -backend-config=prefix=simple-app-terraform-deployment
+
+  - id: terraform-validate
+    name: hashicorp/terraform:1.5.7
+    dir: terraform
+    entrypoint: terraform
+    args: ['validate']
+
+  - id: terraform-plan
+    name: hashicorp/terraform:1.5.7
+    dir: terraform
+    entrypoint: terraform
+    env:
+      - TF_VAR_project_id=$PROJECT_ID
+      - TF_VAR_region=${_REGION}
+      - TF_VAR_zone=${_ZONE}
+      - TF_VAR_vm_name=${_VM_NAME}
+      - TF_VAR_github_owner=${_GITHUB_OWNER}
+      - TF_VAR_github_repo=${_GITHUB_REPO}
+      - TF_VAR_tfstate_bucket_name=${_TFSTATE_BUCKET}
+    args: ['plan', '-out=tfplan']
+
+  - id: terraform-apply
+    name: hashicorp/terraform:1.5.7
+    dir: terraform
+    entrypoint: terraform
+    env:
+      - TF_VAR_project_id=$PROJECT_ID
+      - TF_VAR_region=${_REGION}
+      - TF_VAR_zone=${_ZONE}
+      - TF_VAR_vm_name=${_VM_NAME}
+      - TF_VAR_github_owner=${_GITHUB_OWNER}
+      - TF_VAR_github_repo=${_GITHUB_REPO}
+      - TF_VAR_tfstate_bucket_name=${_TFSTATE_BUCKET}
+    args: ['apply', '-auto-approve', 'tfplan']
+
+  - id: terraform-output
+    name: hashicorp/terraform:1.5.7
+    dir: terraform
+    entrypoint: sh
+    args:
+      - -c
+      - |
+        set -eu
+        terraform output -raw vm_external_ip > /workspace/vm_ip.txt
+        terraform output -raw vm_name > /workspace/vm_name.txt
+
+  - id: deploy-and-health-check
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        VM_IP="$(cat /workspace/vm_ip.txt)"
+        VM_NAME="$(cat /workspace/vm_name.txt)"
+        chmod +x scripts/deploy.sh scripts/health-check.sh
+        ./scripts/deploy.sh "${VM_NAME}" "${_ZONE}" "$PROJECT_ID"
+        ./scripts/health-check.sh "http://${VM_IP}"

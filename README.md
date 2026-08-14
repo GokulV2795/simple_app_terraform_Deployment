@@ -16,7 +16,8 @@ This repository contains a simple static web application deployed to a Google Cl
 .
 ├── app/
 │   ├── index.html
-│   └── styles.css
+│   ├── styles.css
+│   └── app.js
 ├── scripts/
 │   ├── deploy.sh
 │   └── health-check.sh
@@ -30,11 +31,14 @@ This repository contains a simple static web application deployed to a Google Cl
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml
+├── cloudbuild.yaml
 ├── .gitignore
 ├── README.md
 ├── architecture.md
 └── LICENSE
 ```
+
+Two independent, equivalent CI/CD paths are provided: GitHub Actions (`.github/workflows/deploy.yml`, using GitHub OIDC) and Google Cloud Build (`cloudbuild.yaml`, using the deployment service account directly). You can use either, or both.
 
 ## Prerequisites
 
@@ -223,6 +227,28 @@ Once the push occurs, GitHub Actions runs automatically:
 11. Performs a health check
 12. Fails if the app is not reachable
 
+## Optional: Google Cloud Build
+
+`cloudbuild.yaml` at the repository root runs the same steps as the GitHub Actions workflow, as an alternative or additional trigger. It authenticates as the deployment service account directly (no OIDC needed, since Cloud Build already runs inside GCP), so it reuses the service account and state bucket created in Step 4.
+
+To wire it up:
+
+1. Enable the Cloud Build API on your project:
+   ```bash
+   gcloud services enable cloudbuild.googleapis.com
+   ```
+2. Let Cloud Build act as the deployment service account. Grant your own user (or whoever creates the trigger) the ability to do so:
+   ```bash
+   gcloud iam service-accounts add-iam-policy-binding \
+     gcp-demo-deployer@your-gcp-project-id.iam.gserviceaccount.com \
+     --member="user:you@example.com" \
+     --role="roles/iam.serviceAccountUser"
+   ```
+3. Connect this GitHub repository to Cloud Build and create a trigger pointing at `cloudbuild.yaml` (Console: Cloud Build → Triggers → Connect Repository), setting the trigger's service account to `gcp-demo-deployer@your-gcp-project-id.iam.gserviceaccount.com`.
+4. Review the `substitutions` block at the top of `cloudbuild.yaml` — update `_TFSTATE_BUCKET`, `_GITHUB_OWNER`, `_GITHUB_REPO`, and `_DEPLOYMENT_SA_EMAIL` to match your values (they default to the values used elsewhere in this README).
+
+You do not need to repeat Step 4's local `terraform apply` for Cloud Build — the service account and state bucket it created are shared by both pipelines.
+
 ## Deployment architecture
 
 This project uses a very simple stack:
@@ -232,7 +258,7 @@ This project uses a very simple stack:
 - 1 Ubuntu VM
 - Nginx to serve the HTML page
 - Terraform provisions infrastructure
-- GitHub Actions deploys the app
+- GitHub Actions or Cloud Build deploys the app
 
 ## Security notes
 
