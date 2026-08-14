@@ -108,6 +108,33 @@ resource "google_project_iam_member" "deployment_sa_compute_viewer" {
   member  = "serviceAccount:${google_service_account.deployment_sa.email}"
 }
 
+# Read-only roles so `terraform plan`'s refresh pass can read the IAM bindings,
+# service account, WIF pool/provider, and enabled services this same
+# configuration manages, even though this identity can't modify them.
+resource "google_project_iam_member" "deployment_sa_security_reviewer" {
+  project = var.project_id
+  role    = "roles/iam.securityReviewer"
+  member  = "serviceAccount:${google_service_account.deployment_sa.email}"
+}
+
+resource "google_project_iam_member" "deployment_sa_service_account_viewer" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountViewer"
+  member  = "serviceAccount:${google_service_account.deployment_sa.email}"
+}
+
+resource "google_project_iam_member" "deployment_sa_workload_identity_pool_viewer" {
+  project = var.project_id
+  role    = "roles/iam.workloadIdentityPoolViewer"
+  member  = "serviceAccount:${google_service_account.deployment_sa.email}"
+}
+
+resource "google_project_iam_member" "deployment_sa_service_usage_viewer" {
+  project = var.project_id
+  role    = "roles/serviceusage.serviceUsageViewer"
+  member  = "serviceAccount:${google_service_account.deployment_sa.email}"
+}
+
 resource "google_storage_bucket_iam_member" "deployment_sa_tfstate_access" {
   bucket = var.tfstate_bucket_name
   role   = "roles/storage.objectUser"
