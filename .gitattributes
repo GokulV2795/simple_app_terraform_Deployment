@@ -1,0 +1,4 @@
+# Force LF line endings regardless of platform/core.autocrlf. Windows checkouts
+# were injecting CRLF into main.tf's VM startup-script, which broke its shebang
+# line on the Linux VM (`/bin/bash^M: bad interpreter`).
+* text=auto eol=lf
